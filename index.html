@@ -1,83 +1,886 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Scanner de Domaines Expirés</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-</head>
-<body class="bg-slate-900 text-slate-100 min-h-screen p-8">
-    <div class="max-w-5xl mx-auto">
-        <header class="mb-10 text-center">
-            <h1 class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-emerald-400">
-                Pépites SEO : Domaines Expirés
-            </h1>
-            <p class="mt-2 text-slate-400">Mis à jour automatiquement toutes les 12 heures</p>
-        </header>
 
-        <div class="bg-slate-800 border border-slate-700 rounded-xl shadow-xl overflow-hidden">
-            <table class="w-full text-left border-collapse">
-                <thead class="bg-slate-700/50">
-                    <tr>
-                        <th class="p-4 font-semibold">Nom du Domaine</th>
-                        <th class="p-4 font-semibold text-center">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="domain-list" class="divide-y divide-slate-700">
-                </tbody>
-            </table>
-            <div id="loading" class="p-10 text-center text-slate-500 italic">
-                Recherche des domaines dans la base...
-            </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DomainArb — Arbitrage de Domaines Expirés</title>
+  <meta name="description"
+    content="Dashboard d'arbitrage de domaines expirés. Détectez les opportunités SEO avant vos concurrents." />
+
+  <!-- Supabase JS (CDN) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <style>
+    /* ── Reset & base ─────────────────────────────────────── */
+    *,
+    *::before,
+    *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #080b12;
+      color: #e2e8f0;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: #080b12;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+
+    ::selection {
+      background: #10b981;
+      color: #080b12;
+    }
+
+    /* ── Layout ───────────────────────────────────────────── */
+    .container {
+      max-width: 1380px;
+      margin: 0 auto;
+      padding: 0 24px;
+    }
+
+    /* ── Topbar ───────────────────────────────────────────── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 40;
+      background: rgba(8, 11, 18, .85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 54px;
+    }
+
+    .logo {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+    }
+
+    .logo span:first-child {
+      color: #10b981;
+    }
+
+    .logo span:last-child {
+      color: #fff;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+    }
+
+    .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .35;
+      }
+    }
+
+    /* ── Hero ─────────────────────────────────────────────── */
+    .hero {
+      padding: 64px 0 40px;
+      text-align: center;
+      position: relative;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -120px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(16, 185, 129, .12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid rgba(16, 185, 129, .3);
+      background: rgba(16, 185, 129, .08);
+      color: #10b981;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 99px;
+      margin-bottom: 24px;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .hero h1 {
+      font-size: clamp(32px, 6vw, 60px);
+      font-weight: 800;
+      line-height: 1.08;
+      color: #fff;
+      margin-bottom: 16px;
+    }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #10b981, #06b6d4, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero p {
+      font-size: 17px;
+      color: #64748b;
+      max-width: 520px;
+      margin: 0 auto 36px;
+      line-height: 1.7;
+    }
+
+    /* ── KPI strip ────────────────────────────────────────── */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    @media(max-width: 700px) {
+      .kpi-strip {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    .kpi-card {
+      padding: 18px 20px;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, .02);
+      border: 1px solid rgba(255, 255, 255, .06);
+      transition: border-color .2s;
+    }
+
+    .kpi-card:hover {
+      border-color: rgba(16, 185, 129, .25);
+    }
+
+    .kpi-label {
+      font-size: 11px;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 8px;
+    }
+
+    .kpi-value {
+      font-size: 26px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    /* ── Toolbar ──────────────────────────────────────────── */
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+
+    .search-wrap {
+      position: relative;
+      flex: 1;
+      min-width: 220px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #475569;
+      pointer-events: none;
+    }
+
+    input[type="text"],
+    select {
+      background: rgba(255, 255, 255, .04);
+      border: 1px solid rgba(255, 255, 255, .08);
+      color: #e2e8f0;
+      font-family: inherit;
+      font-size: 13px;
+      padding: 9px 14px;
+      border-radius: 12px;
+      outline: none;
+      transition: border-color .2s;
+    }
+
+    input[type="text"] {
+      padding-left: 36px;
+      width: 100%;
+    }
+
+    input[type="text"]::placeholder {
+      color: #475569;
+    }
+
+    input[type="text"]:focus,
+    select:focus {
+      border-color: rgba(16, 185, 129, .5);
+    }
+
+    select {
+      cursor: pointer;
+    }
+
+    select option {
+      background: #0f1117;
+    }
+
+    .filter-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .filter-btn {
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 12px;
+      font-weight: 500;
+      border: 1px solid rgba(255, 255, 255, .08);
+      background: rgba(255, 255, 255, .04);
+      color: #94a3b8;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .filter-btn:hover {
+      border-color: rgba(255, 255, 255, .18);
+      color: #fff;
+    }
+
+    .filter-btn.active {
+      background: rgba(16, 185, 129, .15);
+      border-color: rgba(16, 185, 129, .35);
+      color: #10b981;
+    }
+
+    .refresh-btn {
+      padding: 9px 14px;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, .1);
+      border: 1px solid rgba(16, 185, 129, .25);
+      color: #10b981;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+    }
+
+    .refresh-btn:hover {
+      background: rgba(16, 185, 129, .2);
+    }
+
+    .result-count {
+      font-size: 12px;
+      color: #475569;
+      margin-bottom: 10px;
+    }
+
+    .result-count strong {
+      color: #94a3b8;
+    }
+
+    /* ── Table ────────────────────────────────────────────── */
+    .table-wrap {
+      border-radius: 18px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, .06);
+      background: rgba(255, 255, 255, .015);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    thead tr {
+      border-bottom: 1px solid rgba(255, 255, 255, .06);
+    }
+
+    thead th {
+      padding: 12px 16px;
+      text-align: left;
+      font-size: 10.5px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      color: #475569;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid rgba(255, 255, 255, .04);
+      transition: background .12s;
+    }
+
+    tbody tr:last-child {
+      border-bottom: none;
+    }
+
+    tbody tr:hover {
+      background: rgba(255, 255, 255, .03);
+    }
+
+    td {
+      padding: 14px 16px;
+      font-size: 13px;
+      vertical-align: middle;
+    }
+
+    /* Domain name cell */
+    .domain-name {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 13px;
+      color: #cbd5e1;
+    }
+
+    .domain-name .ext {
+      color: #475569;
+    }
+
+    /* Extension badge */
+    .ext-badge {
+      font-family: monospace;
+      font-size: 11px;
+      background: rgba(255, 255, 255, .06);
+      border: 1px solid rgba(255, 255, 255, .08);
+      border-radius: 6px;
+      padding: 2px 8px;
+      color: #94a3b8;
+      white-space: nowrap;
+    }
+
+    /* Niche badge */
+    .niche {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 99px;
+      white-space: nowrap;
+    }
+
+    .niche-Finance {
+      background: rgba(16, 185, 129, .15);
+      color: #10b981;
+      border: 1px solid rgba(16, 185, 129, .3);
+    }
+
+    .niche-Tech {
+      background: rgba(59, 130, 246, .15);
+      color: #60a5fa;
+      border: 1px solid rgba(59, 130, 246, .3);
+    }
+
+    .niche-Health {
+      background: rgba(139, 92, 246, .15);
+      color: #a78bfa;
+      border: 1px solid rgba(139, 92, 246, .3);
+    }
+
+    .niche-Ecommerce {
+      background: rgba(251, 146, 60, .15);
+      color: #fb923c;
+      border: 1px solid rgba(251, 146, 60, .3);
+    }
+
+    .niche-Other {
+      background: rgba(100, 116, 139, .15);
+      color: #94a3b8;
+      border: 1px solid rgba(100, 116, 139, .3);
+    }
+
+    /* SEO score */
+    .score-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .score-bar-bg {
+      width: 80px;
+      height: 5px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, .08);
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .score-bar {
+      height: 100%;
+      border-radius: 99px;
+      transition: width .6s ease;
+    }
+
+    .score-high {
+      background: #10b981;
+    }
+
+    .score-mid {
+      background: #f59e0b;
+    }
+
+    .score-low {
+      background: #f43f5e;
+    }
+
+    .score-num {
+      font-size: 12px;
+      font-weight: 700;
+      tabular-nums: true;
+    }
+
+    .text-high {
+      color: #10b981;
+    }
+
+    .text-mid {
+      color: #f59e0b;
+    }
+
+    .text-low {
+      color: #f43f5e;
+    }
+
+    /* CTA button */
+    .cta-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      background: rgba(16, 185, 129, .1);
+      border: 1px solid rgba(16, 185, 129, .25);
+      color: #10b981;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+
+    .cta-btn:hover {
+      background: rgba(16, 185, 129, .22);
+      border-color: rgba(16, 185, 129, .5);
+    }
+
+    /* Loading / empty states */
+    .state-row td {
+      text-align: center;
+      padding: 56px 0;
+      color: #475569;
+      font-size: 14px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 2px solid rgba(16, 185, 129, .3);
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+      margin-bottom: 10px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    /* ── Alert banner ─────────────────────────────────────── */
+    .alert {
+      padding: 10px 16px;
+      border-radius: 10px;
+      margin-bottom: 18px;
+      font-size: 12.5px;
+      line-height: 1.6;
+    }
+
+    .alert-warn {
+      background: rgba(245, 158, 11, .08);
+      border: 1px solid rgba(245, 158, 11, .25);
+      color: #fbbf24;
+    }
+
+    code {
+      font-family: monospace;
+      background: rgba(255, 255, 255, .08);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+
+    /* ── Footer ───────────────────────────────────────────── */
+    footer {
+      padding: 40px 0;
+      text-align: center;
+      font-size: 12px;
+      color: #334155;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────── -->
+  <header>
+    <div class="container">
+      <div class="topbar">
+        <div class="logo"><span>Domain</span><span>Arb</span></div>
+        <div class="live-badge">
+          <span class="live-dot"></span>
+          Actualisé toutes les 12h
         </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ── Hero ────────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="container">
+      <div class="tag">✦ Arbitrage · Domaines expirés</div>
+      <h1>
+        <span class="gradient-text">Les domaines expirés</span><br>
+        sont votre avantage SEO.
+      </h1>
+      <p>
+        Détectez les opportunités à fort potentiel avant vos concurrents.
+        Score SEO, niches, backlinks — tout en un coup d'œil.
+      </p>
+    </div>
+  </section>
+
+  <!-- ── Dashboard ────────────────────────────────────────────── -->
+  <div class="container">
+
+    <!-- KPI cards -->
+    <div class="kpi-strip">
+      <div class="kpi-card">
+        <div class="kpi-label">Domaines indexés</div>
+        <div class="kpi-value" id="kpi-total">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Score SEO moyen</div>
+        <div class="kpi-value" id="kpi-avg">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Meilleur score</div>
+        <div class="kpi-value" id="kpi-top">—</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-label">Backlinks totaux</div>
+        <div class="kpi-value" id="kpi-bl">—</div>
+      </div>
     </div>
 
-    <script>
-        const MY_SUPABASE_URL = 'https://fdhmfntdbzdhioxwtdem.supabase.co';
-        const MY_SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkaG1mbnRkYnpkaGlveHd0ZGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDE5MTAsImV4cCI6MjA4NzUxNzkxMH0.YqSYShrPAmpX_qpYRY44lcHHyqr_tSpvDJDKeZAq0DU';
+    <!-- Config alert (shown if keys not set) -->
+    <div class="alert alert-warn" id="config-alert" style="display:none">
+      ⚠️ Remplacez <code>VOTRE_SUPABASE_URL</code> et <code>VOTRE_SUPABASE_ANON_KEY</code>
+      dans ce fichier pour afficher vos vraies données.
+    </div>
 
-        const supabaseClient = supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY);
+    <!-- Toolbar -->
+    <div class="toolbar">
+      <div class="search-wrap">
+        <svg class="search-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2">
+          <circle cx="11" cy="11" r="8" />
+          <path d="m21 21-4.35-4.35" />
+        </svg>
+        <input type="text" id="search" placeholder="Rechercher un domaine…" />
+      </div>
+      <div class="filter-btns" id="ext-filters">
+        <button class="filter-btn active" data-ext="all">Tous</button>
+        <button class="filter-btn" data-ext=".com">.com</button>
+        <button class="filter-btn" data-ext=".fr">.fr</button>
+        <button class="filter-btn" data-ext=".io">.io</button>
+      </div>
+      <select id="niche-filter">
+        <option value="all">Toutes niches</option>
+        <option value="Finance">Finance</option>
+        <option value="Tech">Tech</option>
+        <option value="Health">Santé</option>
+        <option value="E-commerce">E-commerce</option>
+        <option value="Other">Autre</option>
+      </select>
+      <select id="sort-filter">
+        <option value="seo_score">Trier : Score SEO</option>
+        <option value="age_years">Trier : Ancienneté</option>
+        <option value="backlinks">Trier : Backlinks</option>
+      </select>
+      <button class="refresh-btn" onclick="loadDomains()">↻ Rafraîchir</button>
+    </div>
 
-        async function fetchDomains() {
-            const { data, error } = await supabaseClient
-                .from('domains')
-                .select('*');
-            // .order('created_at') supprimé — colonne inexistante dans ta table
+    <div class="result-count"><strong id="count">—</strong> domaine(s) affiché(s)</div>
 
-            const list = document.getElementById('domain-list');
-            const loader = document.getElementById('loading');
+    <!-- Table -->
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Domaine</th>
+            <th>Extension</th>
+            <th>Niche</th>
+            <th>Score SEO</th>
+            <th>Âge (ans)</th>
+            <th>Backlinks</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr class="state-row">
+            <td colspan="7">
+              <div class="spinner"></div><br>Chargement des données…
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-            if (error) {
-                console.error("Erreur Supabase:", error);
-                loader.innerText = "Erreur : " + error.message;
-                return;
-            }
+  </div>
 
-            if (data && data.length > 0) {
-                loader.classList.add('hidden');
-                list.innerHTML = "";
-                data.forEach(domain => {
-                    const row = `
-                        <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700">
-                            <td class="p-4 font-mono text-emerald-400 font-bold">${domain.domain_name}</td>
-                            <td class="p-4 text-center">
-                                <a href="https://www.godaddy.com/fr-fr/domaine/recherche?domainToCheck=${domain.domain_name}"
-                                   target="_blank"
-                                   class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold transition-all inline-block">
-                                   Vérifier
-                                </a>
-                            </td>
-                        </tr>
-                    `;
-                    list.innerHTML += row;
-                });
-            } else {
-                loader.innerText = "La table est connectée mais semble vide.";
-            }
+  <footer>
+    © 2025 DomainArb · Données à titre indicatif uniquement.
+  </footer>
+
+  <!-- ── Script ────────────────────────────────────────────────── -->
+  <script>
+    // ════════════════════════════════════════════════════════════════
+    // 🔑  CONFIGURATION — remplacez ces deux valeurs par les vôtres
+    //     Supabase → Settings → API
+    // ════════════════════════════════════════════════════════════════
+    const SUPABASE_URL = 'https://fdhmfntdbzdhioxwtdem.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkaG1mbnRkYnpkaGlveHd0ZGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDE5MTAsImV4cCI6MjA4NzUxNzkxMH0.YqSYShrPAmpX_qpYRY44lcHHyqr_tSpvDJDKeZAq0DU'
+    // ════════════════════════════════════════════════════════════════
+
+    const IS_CONFIGURED = !SUPABASE_URL.includes('VOTRE')
+
+    // ── Supabase client ──────────────────────────────────────────
+    const { createClient } = supabase
+    const db = createClient(
+      IS_CONFIGURED ? SUPABASE_URL : 'https://placeholder.supabase.co',
+      IS_CONFIGURED ? SUPABASE_ANON_KEY : 'placeholder'
+    )
+
+    // ── Mock data (fallback when Supabase not configured) ────────
+    const MOCK = [
+      { id: 1, name: 'investsmart', extension: '.com', niche: 'Finance', seo_score: 87, age_years: 8, backlinks: 4200, affiliate_url: '#' },
+      { id: 2, name: 'clouddevops', extension: '.io', niche: 'Tech', seo_score: 74, age_years: 5, backlinks: 1800, affiliate_url: '#' },
+      { id: 3, name: 'fitnesshub', extension: '.fr', niche: 'Health', seo_score: 61, age_years: 3, backlinks: 740, affiliate_url: '#' },
+      { id: 4, name: 'megastore', extension: '.com', niche: 'E-commerce', seo_score: 52, age_years: 6, backlinks: 2100, affiliate_url: '#' },
+      { id: 5, name: 'wealthpath', extension: '.com', niche: 'Finance', seo_score: 91, age_years: 12, backlinks: 9800, affiliate_url: '#' },
+      { id: 6, name: 'devstudio', extension: '.io', niche: 'Tech', seo_score: 45, age_years: 2, backlinks: 390, affiliate_url: '#' },
+      { id: 7, name: 'bionutrient', extension: '.fr', niche: 'Health', seo_score: 38, age_years: 1, backlinks: 210, affiliate_url: '#' },
+      { id: 8, name: 'tradepoint', extension: '.com', niche: 'Finance', seo_score: 79, age_years: 9, backlinks: 5600, affiliate_url: '#' },
+      { id: 9, name: 'aiplatform', extension: '.io', niche: 'Tech', seo_score: 83, age_years: 4, backlinks: 3100, affiliate_url: '#' },
+      { id: 10, name: 'shopflow', extension: '.com', niche: 'E-commerce', seo_score: 67, age_years: 7, backlinks: 2900, affiliate_url: '#' },
+      { id: 11, name: 'cryptovault', extension: '.io', niche: 'Finance', seo_score: 55, age_years: 3, backlinks: 1200, affiliate_url: '#' },
+      { id: 12, name: 'mediassist', extension: '.fr', niche: 'Health', seo_score: 42, age_years: 2, backlinks: 620, affiliate_url: '#' },
+    ]
+
+    // ── State ────────────────────────────────────────────────────
+    let allDomains = []
+    let activeExt = 'all'
+    let activeNiche = 'all'
+    let sortBy = 'seo_score'
+
+    // ── Load data ────────────────────────────────────────────────
+    async function loadDomains() {
+      setLoading(true)
+      if (!IS_CONFIGURED) {
+        document.getElementById('config-alert').style.display = 'block'
+        allDomains = MOCK
+      } else {
+        const { data, error } = await db
+          .from('domains')
+          .select('domain_name')
+          .order('domain_name', { ascending: true })
+          .limit(300)
+        if (error || !data) { console.error(error); allDomains = MOCK }
+        else {
+          // Adapter les données de la table (qui n'a que domain_name)
+          allDomains = data.map((d, i) => ({
+            id: i,
+            name: d.domain_name.replace(/\.[^.]+$/, ''),
+            extension: '.' + (d.domain_name.split('.').pop() || 'com'),
+            niche: 'Other',
+            seo_score: 0,
+            age_years: 0,
+            backlinks: 0,
+            affiliate_url: `https://www.godaddy.com/fr-fr/domaine/recherche?domainToCheck=${d.domain_name}`
+          }))
         }
+      }
+      updateKPIs(allDomains)
+      render()
+    }
 
-        fetchDomains();
-    </script>
+    // ── KPIs ─────────────────────────────────────────────────────
+    function updateKPIs(data) {
+      const total = data.length
+      const avg = total ? Math.round(data.reduce((s, d) => s + d.seo_score, 0) / total) : 0
+      const top = total ? Math.max(...data.map(d => d.seo_score)) : 0
+      const bl = data.reduce((s, d) => s + (d.backlinks || 0), 0)
+      document.getElementById('kpi-total').textContent = total.toLocaleString('fr-FR')
+      document.getElementById('kpi-avg').textContent = avg + ' / 100'
+      document.getElementById('kpi-top').textContent = top
+      document.getElementById('kpi-bl').textContent = bl.toLocaleString('fr-FR')
+    }
+
+    // ── Filter & sort ────────────────────────────────────────────
+    function getFiltered() {
+      const q = document.getElementById('search').value.toLowerCase()
+      return allDomains
+        .filter(d => {
+          const matchQ = !q || d.name.toLowerCase().includes(q) || d.extension.includes(q)
+          const matchExt = activeExt === 'all' || d.extension === activeExt
+          const matchNiche = activeNiche === 'all' || d.niche === activeNiche
+          return matchQ && matchExt && matchNiche
+        })
+        .sort((a, b) => (b[sortBy] || 0) - (a[sortBy] || 0))
+    }
+
+    // ── Render table ─────────────────────────────────────────────
+    function render() {
+      const filtered = getFiltered()
+      document.getElementById('count').textContent = filtered.length
+      const tbody = document.getElementById('table-body')
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `<tr class="state-row"><td colspan="7">Aucun domaine ne correspond à vos filtres.</td></tr>`
+        return
+      }
+
+      tbody.innerHTML = filtered.map(d => {
+        const scoreClass = d.seo_score >= 70 ? 'high' : d.seo_score >= 40 ? 'mid' : 'low'
+        const nicheKey = d.niche === 'E-commerce' ? 'Ecommerce' : (d.niche || 'Other')
+        const affiliateUrl = d.affiliate_url && d.affiliate_url !== '#'
+          ? d.affiliate_url
+          : `https://www.godaddy.com/domainsearch/find?domainToCheck=${d.name}${d.extension}`
+
+        return `<tr>
+        <td><span class="domain-name">${escHtml(d.name)}<span class="ext">${escHtml(d.extension)}</span></span></td>
+        <td><span class="ext-badge">${escHtml(d.extension)}</span></td>
+        <td><span class="niche niche-${nicheKey}">${escHtml(d.niche || 'Other')}</span></td>
+        <td>
+          <div class="score-wrap">
+            <div class="score-bar-bg">
+              <div class="score-bar score-${scoreClass}" style="width:${d.seo_score}%"></div>
+            </div>
+            <span class="score-num text-${scoreClass}">${d.seo_score}</span>
+          </div>
+        </td>
+        <td>${d.age_years || 0}</td>
+        <td>${(d.backlinks || 0).toLocaleString('fr-FR')}</td>
+        <td>
+          <a href="${affiliateUrl}" target="_blank" rel="noopener" class="cta-btn">
+            Vérifier
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+        </td>
+      </tr>`
+      }).join('')
+    }
+
+    function setLoading(on) {
+      if (on) {
+        document.getElementById('table-body').innerHTML =
+          `<tr class="state-row"><td colspan="7"><div class="spinner"></div><br>Chargement…</td></tr>`
+      }
+    }
+
+    function escHtml(str) {
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+    }
+
+    // ── Event listeners ──────────────────────────────────────────
+    document.getElementById('search').addEventListener('input', render)
+
+    document.getElementById('ext-filters').addEventListener('click', e => {
+      const btn = e.target.closest('[data-ext]')
+      if (!btn) return
+      document.querySelectorAll('[data-ext]').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+      activeExt = btn.dataset.ext
+      render()
+    })
+
+    document.getElementById('niche-filter').addEventListener('change', e => {
+      activeNiche = e.target.value
+      render()
+    })
+
+    document.getElementById('sort-filter').addEventListener('change', e => {
+      sortBy = e.target.value
+      render()
+    })
+
+    // ── Init ─────────────────────────────────────────────────────
+    loadDomains()
+
+    // Auto-refresh every 10 min
+    setInterval(loadDomains, 10 * 60 * 1000)
+  </script>
+
 </body>
+
 </html>
