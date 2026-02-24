@@ -21,14 +21,15 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
-        run: pip install -r scraper/requirements.txt
+        run: pip install -r requirements.txt
 
       - name: Run scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python scraper/scraper.py
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+        run: python scraper.py
 
       - name: Notify on failure
         if: failure()
         run: echo "Scraper failed — check logs above."
+
