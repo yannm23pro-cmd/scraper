@@ -1,0 +1,3 @@
+supabase
+requests
+beautifulsoup4
