@@ -38,11 +38,11 @@
         const SUPABASE_URL = 'https://fdhmfntdbzdhioxwtdem.supabase.co';
         const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZkaG1mbnRkYnpkaGlveHd0ZGVtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE5NDE5MTAsImV4cCI6MjA4NzUxNzkxMH0.YqSYShrPAmpX_qpYRY44lcHHyqr_tSpvDJDKeZAq0DU';
 
-        const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      const supabaseClient = supabase.createClient(MY_SUPABASE_URL, MY_SUPABASE_KEY);
 
         async function fetchDomains() {
-            // Remplace 'domains' par le nom exact de ta table si besoin
-            const { data, error } = await supabase
+            // 3. Appel à la base de données
+            const { data, error } = await supabaseClient
                 .from('domains') 
                 .select('*')
                 .order('created_at', { ascending: false });
@@ -50,12 +50,20 @@
             const list = document.getElementById('domain-list');
             const loader = document.getElementById('loading');
 
+            if (error) {
+                console.error("Erreur Supabase:", error);
+                loader.innerText = "Erreur de connexion à la base.";
+                return;
+            }
+
             if (data && data.length > 0) {
                 loader.classList.add('hidden');
+                list.innerHTML = ""; // On vide le tableau avant de le remplir
                 data.forEach(domain => {
                     const row = `
-                        <tr class="hover:bg-slate-700/30 transition-colors">
+                        <tr class="hover:bg-slate-700/30 transition-colors border-b border-slate-700">
                             <td class="p-4 font-mono text-emerald-400 font-bold">${domain.domain_name}</td>
+                            <td class="p-4 text-center text-slate-300">${domain.created_at ? new Date(domain.created_at).toLocaleDateString() : '-'}</td>
                             <td class="p-4 text-center">
                                 <a href="https://www.godaddy.com/fr-fr/domaine/recherche?domainToCheck=${domain.domain_name}" 
                                    target="_blank" 
@@ -68,11 +76,9 @@
                     list.innerHTML += row;
                 });
             } else {
-                loader.innerText = "Aucun domaine trouvé pour le moment.";
+                loader.innerText = "Aucun domaine trouvé dans la table 'domains'.";
             }
         }
 
         fetchDomains();
     </script>
-</body>
-</html>
