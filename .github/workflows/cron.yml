@@ -26,10 +26,11 @@ jobs:
       - name: Run scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_KEY }}
         run: python scraper.py
 
       - name: Notify on failure
         if: failure()
         run: echo "Scraper failed — check logs above."
+
 
